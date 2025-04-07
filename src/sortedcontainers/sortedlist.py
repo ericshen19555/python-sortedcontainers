@@ -13,6 +13,7 @@ Sorted list implementations:
 * :class:`SortedKeyList`
 
 """
+import itertools
 # pylint: disable=too-many-lines
 
 import sys
@@ -110,7 +111,7 @@ class SortedList(MutableSequence):
         self._lists = []
         self._maxes = []
         self._index = []
-        self._offset = 0
+        self._offset = 0  # TODO: remove it
 
         if iterable is not None:
             self._update(iterable)
@@ -251,12 +252,12 @@ class SortedList(MutableSequence):
 
             del _index[:]
         else:
-            if _index:
-                child = self._offset + pos
-                while child:
-                    _index[child] += 1
-                    child = (child - 1) >> 1
-                _index[0] += 1
+            if _index:  # len(_lists[pos]) += 1
+                len_index = len(_index)
+                pos += 1  # BIT is 1-based
+                while pos < len_index:
+                    _index[pos] += 1
+                    pos += pos & -pos  # add low-bit, BIT traversal
 
     def update(self, iterable):
         """Update sorted list by adding all values from `iterable`.
@@ -425,12 +426,12 @@ class SortedList(MutableSequence):
         if len_lists_pos > (self._load >> 1):
             _maxes[pos] = _lists_pos[-1]
 
-            if _index:
-                child = self._offset + pos
-                while child > 0:
-                    _index[child] -= 1
-                    child = (child - 1) >> 1
-                _index[0] -= 1
+            if _index:  # len(_lists[pos]) -= 1
+                len_index = len(_index)
+                pos += 1  # BIT is 1-based
+                while pos < len_index:
+                    _index[pos] -= 1
+                    pos += pos & -pos  # add low-bit, BIT traversal
         elif len(_lists) > 1:
             if not pos:
                 pos += 1
@@ -509,26 +510,16 @@ class SortedList(MutableSequence):
         if not _index:
             self._build_index()
 
-        total = 0
+        # pos -= 1 to calculate the previous lists lengths.
+        # then pos += 1 to convert it to 1-based.
 
-        # Increment pos to point in the index to len(self._lists[pos]).
+        # Iterate until reaching the dummy node of the index tree at pos = 0.
 
-        pos += self._offset
+        while pos:  # sum(len(_lists_pos) for _lists_pos in _lists[:pos])
+            idx += _index[pos]
+            pos -= pos & -pos  # minus low-bit, BIT traversal
 
-        # Iterate until reaching the root of the index tree at pos = 0.
-
-        while pos:
-            # Right-child nodes are at odd indices. At such indices
-            # account the total below the left child node.
-
-            if not pos & 1:
-                total += _index[pos - 1]
-
-            # Advance pos to the parent node.
-
-            pos = (pos - 1) >> 1
-
-        return total + idx
+        return idx
 
     def _pos(self, idx):
         """Convert an index into an index pair (lists index, sublist index)
@@ -607,21 +598,16 @@ class SortedList(MutableSequence):
             self._build_index()
 
         pos = 0
-        child = 1
         len_index = len(_index)
+        bit = 1 << (len_index - 1).bit_length() - 1  # start from the highest bit
+        while bit:  # bisect on BIT for (pos, idx)
+            new_pos = pos + bit
+            if new_pos < len_index and _index[new_pos] <= idx:
+                idx -= _index[new_pos]
+                pos = new_pos
+            bit >>= 1
 
-        while child < len_index:
-            index_child = _index[child]
-
-            if idx < index_child:
-                pos = child
-            else:
-                idx -= index_child
-                pos = child + 1
-
-            child = (pos << 1) + 1
-
-        return (pos - self._offset, idx)
+        return (pos, idx)
 
     def _build_index(self):
         """Build a positional index for indexing the sorted list.
@@ -659,37 +645,17 @@ class SortedList(MutableSequence):
         See the comment and notes on ``SortedList._pos`` for details.
 
         """
-        row0 = list(map(len, self._lists))
+        _index = self._index
+        _index.append(0)  # dummy node
+        _index.extend(map(len, self._lists))
+        len_index = len(_index)
 
-        if len(row0) == 1:
-            self._index[:] = row0
-            self._offset = 0
-            return
-
-        head = iter(row0)
-        tail = iter(head)
-        row1 = list(starmap(add, zip(head, tail)))
-
-        if len(row0) & 1:
-            row1.append(row0[-1])
-
-        if len(row1) == 1:
-            self._index[:] = row1 + row0
-            self._offset = 1
-            return
-
-        size = 2 ** (int(log(len(row1) - 1, 2)) + 1)
-        row1.extend(repeat(0, size - len(row1)))
-        tree = [row0, row1]
-
-        while len(tree[-1]) > 1:
-            head = iter(tree[-1])
-            tail = iter(head)
-            row = list(starmap(add, zip(head, tail)))
-            tree.append(row)
-
-        reduce(iadd, reversed(tree), self._index)
-        self._offset = size * 2 - 1
+        it = enumerate(_index)
+        next(it)  # throw dummy node
+        for pos, val in it:  # O(n)
+            pos += pos & -pos
+            if pos < len_index:
+                _index[pos] += val
 
     def __delitem__(self, index):
         """Remove value at `index` from sorted list.
@@ -1551,7 +1517,7 @@ class SortedList(MutableSequence):
             for pos in range(0, len(self._lists) - 1):
                 assert len(self._lists[pos]) >= half
 
-            if self._index:
+            if self._index:  # TODO: switch to BIT
                 assert self._len == self._index[0]
                 assert len(self._index) == self._offset + len(self._lists)
 
