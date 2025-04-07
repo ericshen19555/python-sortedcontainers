@@ -13,7 +13,6 @@ Sorted list implementations:
 * :class:`SortedKeyList`
 
 """
-import itertools
 # pylint: disable=too-many-lines
 
 import sys
@@ -21,9 +20,8 @@ import traceback
 from bisect import bisect_left, bisect_right, insort
 from collections.abc import MutableSequence, Sequence
 from functools import reduce
-from itertools import chain, repeat, starmap
-from math import log
-from operator import add, eq, ge, gt, iadd, le, lt, ne
+from itertools import chain
+from operator import eq, ge, gt, iadd, le, lt, ne
 from reprlib import recursive_repr
 from textwrap import dedent
 
