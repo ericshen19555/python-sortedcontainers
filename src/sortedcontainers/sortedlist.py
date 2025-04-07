@@ -1614,7 +1614,7 @@ class SortedKeyList(SortedList):
         self._keys = []
         self._maxes = []
         self._index = []
-        self._offset = 0
+        self._offset = 0  # TODO: remove it
 
         if iterable is not None:
             self._update(iterable)
@@ -1715,12 +1715,12 @@ class SortedKeyList(SortedList):
 
             del _index[:]
         else:
-            if _index:
-                child = self._offset + pos
-                while child:
-                    _index[child] += 1
-                    child = (child - 1) >> 1
-                _index[0] += 1
+            if _index:  # len(_lists[pos]) += 1
+                len_index = len(_index)
+                pos += 1  # BIT is 1-based
+                while pos < len_index:
+                    _index[pos] += 1
+                    pos += pos & -pos  # add low-bit, BIT traversal
 
     def update(self, iterable):
         """Update sorted-key list by adding all values from `iterable`.
@@ -1942,12 +1942,12 @@ class SortedKeyList(SortedList):
         if len_keys_pos > (self._load >> 1):
             _maxes[pos] = keys_pos[-1]
 
-            if _index:
-                child = self._offset + pos
-                while child > 0:
-                    _index[child] -= 1
-                    child = (child - 1) >> 1
-                _index[0] -= 1
+            if _index:  # len(_lists[pos]) -= 1
+                len_index = len(_index)
+                pos += 1  # BIT is 1-based
+                while pos < len_index:
+                    _index[pos] -= 1
+                    pos += pos & -pos  # add low-bit, BIT traversal
         elif len(_keys) > 1:
             if not pos:
                 pos += 1
@@ -2455,7 +2455,7 @@ class SortedKeyList(SortedList):
             for pos in range(0, len(self._lists) - 1):
                 assert len(self._lists[pos]) >= half
 
-            if self._index:
+            if self._index:  # TODO: switch to BIT
                 assert self._len == self._index[0]
                 assert len(self._index) == self._offset + len(self._lists)
 
