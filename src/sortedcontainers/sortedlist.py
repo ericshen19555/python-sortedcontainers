@@ -111,7 +111,6 @@ class SortedList(MutableSequence):
         self._lists = []
         self._maxes = []
         self._index = []
-        self._offset = 0  # TODO: remove it
 
         if iterable is not None:
             self._update(iterable)
@@ -187,7 +186,6 @@ class SortedList(MutableSequence):
         del self._lists[:]
         del self._maxes[:]
         del self._index[:]
-        self._offset = 0
 
     _clear = clear
 
@@ -452,7 +450,7 @@ class SortedList(MutableSequence):
             del _maxes[pos]
             del _index[:]
 
-    def _loc(self, pos, idx):
+    def _loc(self, pos, idx):  # TODO: new docstring
         """Convert an index pair (lists index, sublist index) into a single
         index number that corresponds to the position of the value in the
         sorted list.
@@ -521,7 +519,7 @@ class SortedList(MutableSequence):
 
         return idx
 
-    def _pos(self, idx):
+    def _pos(self, idx):  # TODO: new docstring
         """Convert an index into an index pair (lists index, sublist index)
         that can be used to access the corresponding lists position.
 
@@ -609,7 +607,7 @@ class SortedList(MutableSequence):
 
         return (pos, idx)
 
-    def _build_index(self):
+    def _build_index(self):  # TODO: new docstring
         """Build a positional index for indexing the sorted list.
 
         Indexes are represented as binary trees in a dense array notation
@@ -646,12 +644,12 @@ class SortedList(MutableSequence):
 
         """
         _index = self._index
-        _index.append(0)  # dummy node
+        _index.append(0)  # Insert dummy node at index 0.
         _index.extend(map(len, self._lists))
         len_index = len(_index)
 
         it = enumerate(_index)
-        next(it)  # throw dummy node
+        next(it)  # skip dummy node
         for pos, val in it:  # O(n)
             pos += pos & -pos
             if pos < len_index:
@@ -1517,32 +1515,24 @@ class SortedList(MutableSequence):
             for pos in range(0, len(self._lists) - 1):
                 assert len(self._lists[pos]) >= half
 
-            if self._index:  # TODO: switch to BIT
-                assert self._len == self._index[0]
-                assert len(self._index) == self._offset + len(self._lists)
+            if self._index:
+                assert len(self._index) - 1 == len(self._maxes)
 
-                # Check index leaf nodes equal length of sublists.
+                # Check index values equal length of sublists.
+                _index_copy = self._index.copy()
 
-                for pos in range(len(self._lists)):
-                    leaf = self._index[self._offset + pos]
-                    assert leaf == len(self._lists[pos])
-
-                # Check index branch nodes are the sum of their children.
-
-                for pos in range(self._offset):
-                    child = (pos << 1) + 1
-                    if child >= len(self._index):
-                        assert self._index[pos] == 0
-                    elif child + 1 == len(self._index):
-                        assert self._index[pos] == self._index[child]
-                    else:
-                        child_sum = self._index[child] + self._index[child + 1]
-                        assert child_sum == self._index[pos]
+                for pos in reversed(range(1, len(_index_copy))):
+                    val = _index_copy[pos]
+                    pos += pos & -pos
+                    if pos < len(_index_copy):
+                        _index_copy[pos] -= val
+                it = iter(_index_copy)
+                assert next(it) == 0  # dummy node
+                assert all(map(eq, it, map(len, self._lists)))
         except:
             traceback.print_exc(file=sys.stdout)
             print('len', self._len)
             print('load', self._load)
-            print('offset', self._offset)
             print('len_index', len(self._index))
             print('index', self._index)
             print('len_maxes', len(self._maxes))
@@ -1614,7 +1604,6 @@ class SortedKeyList(SortedList):
         self._keys = []
         self._maxes = []
         self._index = []
-        self._offset = 0  # TODO: remove it
 
         if iterable is not None:
             self._update(iterable)
@@ -2455,32 +2444,24 @@ class SortedKeyList(SortedList):
             for pos in range(0, len(self._lists) - 1):
                 assert len(self._lists[pos]) >= half
 
-            if self._index:  # TODO: switch to BIT
-                assert self._len == self._index[0]
-                assert len(self._index) == self._offset + len(self._lists)
+            if self._index:
+                assert len(self._index) - 1 == len(self._maxes)
 
-                # Check index leaf nodes equal length of sublists.
+                # Check index values equal length of sublists.
+                _index_copy = self._index.copy()
 
-                for pos in range(len(self._lists)):
-                    leaf = self._index[self._offset + pos]
-                    assert leaf == len(self._lists[pos])
-
-                # Check index branch nodes are the sum of their children.
-
-                for pos in range(self._offset):
-                    child = (pos << 1) + 1
-                    if child >= len(self._index):
-                        assert self._index[pos] == 0
-                    elif child + 1 == len(self._index):
-                        assert self._index[pos] == self._index[child]
-                    else:
-                        child_sum = self._index[child] + self._index[child + 1]
-                        assert child_sum == self._index[pos]
+                for pos in reversed(range(1, len(_index_copy))):
+                    val = _index_copy[pos]
+                    pos += pos & -pos
+                    if pos < len(_index_copy):
+                        _index_copy[pos] -= val
+                it = iter(_index_copy)
+                assert next(it) == 0  # dummy node
+                assert all(map(eq, it, map(len, self._lists)))
         except:
             traceback.print_exc(file=sys.stdout)
             print('len', self._len)
             print('load', self._load)
-            print('offset', self._offset)
             print('len_index', len(self._index))
             print('index', self._index)
             print('len_maxes', len(self._maxes))
